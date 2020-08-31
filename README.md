@@ -1,6 +1,6 @@
 # Install
 
-Run `npm link` to install as a command line tool.
+Run `npm pack && npm install -g ./fusebit-*.tgz` to install from this repository.
 
 # Usage
 
