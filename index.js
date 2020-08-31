@@ -1,4 +1,4 @@
-#!/bin/env node
+#!/usr/bin/env node
 const { Command } = require('commander');
 const { spawnSync } = require('child_process');
 const superagent = require('superagent');
@@ -6,8 +6,15 @@ const jsdiff = require('diff');
 const fs = require('fs');
 const path = require('path');
 
-const fuseToken = spawnSync('fuse', ['token', '-o', 'raw']).stdout.toString().trim();
-const fuseProfile = JSON.parse(spawnSync('fuse', ['profile', 'get', '-o', 'json']).stdout.toString());
+let fuseToken, fuseProfile;
+
+try {
+  fuseToken = spawnSync('fuse', ['token', '-o', 'raw']).stdout.toString().trim();
+  fuseProfile = JSON.parse(spawnSync('fuse', ['profile', 'get', '-o', 'json']).stdout.toString());
+} catch (c) {
+  console.log('ERROR: Make sure your `fuse profile get -o json` returns the current fuse profile.');
+  process.exit(-1);
+}
 
 // Get a list of functions matching the criteria
 async function listFunctions(subscriptionId, options) {
@@ -93,7 +100,7 @@ async function diffFiles(templateFiles, subscriptionId, templatePath, boundaryId
   for (const name in templateFiles) {
     console.log(
       jsdiff.createTwoFilesPatch(
-        `${options.path ? '' : subscriptionId + '/'}${templatePath}/${name}`,
+        `${options.path ? '' : subscriptionId + '/'}${templatePath}${name}`,
         `${subscriptionId}/${boundaryId}/${functionId}/${name}`,
         templateFiles[name],
         func.nodejs.files[name] || '',
@@ -138,6 +145,10 @@ async function processTemplateFunctions(subscriptionId, action, options) {
     // Get the template
     const templateFunc = await getFunction(subscriptionId, templateBoundary, templateId);
 
+    // If it's not supplied, do the default thing that makes sense and only look at files in the template/
+    // subdirectory
+    options.include = options.include || 'template/';
+
     // Identify the files to replace
     Object.keys(templateFunc.nodejs.files)
       .filter((f) => !options.include || f.startsWith(options.include))
@@ -145,7 +156,7 @@ async function processTemplateFunctions(subscriptionId, action, options) {
         (f) => (templateFiles[f.slice(options.include ? options.include.length : 0)] = templateFunc.nodejs.files[f])
       );
 
-    templatePath = `${templateBoundary}/${templateId}`;
+    templatePath = `${templateBoundary}/${templateId}/${options.include}`;
 
     options.criteria = options.criteria || `template.id=${templateId}`;
   }
@@ -169,8 +180,11 @@ if (require.main === module) {
   program.description(
     [
       'Update Examples:',
-      "  Update a function based on a template, removing old files that aren't present in the template:",
+      "  Update all functions based on a template, removing old files that aren't present in the template:",
       '    $ fuse-tool update -s ${SUB} template-manager/sample-slack-addon -i template/ --delete',
+      '',
+      "  Update a specific function based on a template, removing old files that aren't present in the template:",
+      '    $ fuse-tool update -s ${SUB} template-manager/sample-slack-addon -i template/ --delete -u someboundary/somefunction',
       '',
       "  Update a function based on a template on disk, removing old files that aren't present in the template:",
       '    $ fuse-tool update -s ${SUB} -p ./template-manager_sample-slack-addon -i template/ --delete',
@@ -203,7 +217,7 @@ if (require.main === module) {
   program
     .command('update [template]')
     .description(
-      'Update all of the functions that derive from the specificed template with the files in "template/"\n' +
+      'Update all of the functions were created by the specified template with the files in "template/"\n' +
         `For example '$ fuse-tool update template-manager/sample-slack-addon -i template/`
     )
     .requiredOption('-s, --subscription [subscriptionId]', 'Subscription ID')
@@ -217,19 +231,19 @@ if (require.main === module) {
     .action(async (template, cmdObj) => {
       if (cmdObj.subscription.length != 'sub-0000000000000000'.length) {
         console.log('Subscription is not in the right format');
-        return;
+        return process.exit(-1);
       }
 
       if (cmdObj.path && !cmdObj.criteria && !cmdObj.function) {
         console.log(
           'Criteria or function must be specified when using --path, for example: "-c template.id=sample-slack-addon"'
         );
-        return;
+        return process.exit(-1);
       }
 
       if (!template && !cmdObj.path) {
         console.log('One of [template] or [--path] must be specified');
-        return;
+        return process.exit(-1);
       }
 
       try {
@@ -245,6 +259,7 @@ if (require.main === module) {
         });
       } catch (e) {
         console.log(`Error occurred: ${e}`);
+        return process.exit(-1);
       }
     });
 
@@ -262,19 +277,19 @@ if (require.main === module) {
     .action(async (template, cmdObj) => {
       if (cmdObj.subscription.length != 'sub-0000000000000000'.length) {
         console.log('Subscription is not in the right format');
-        return;
+        return process.exit(-1);
       }
 
       if (cmdObj.path && !cmdObj.criteria && !cmdObj.function) {
         console.log(
           'Criteria or function must be specified when using --path, for example: "-c template.id=sample-slack-addon"'
         );
-        return;
+        return process.exit(-1);
       }
 
       if (!template && !cmdObj.path) {
         console.log('One of [template] or [--path] must be specified');
-        return;
+        return process.exit(-1);
       }
 
       try {
@@ -287,6 +302,7 @@ if (require.main === module) {
         });
       } catch (e) {
         console.log(`${e}`, e);
+        return process.exit(-1);
       }
     });
 
