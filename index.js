@@ -258,7 +258,7 @@ if (require.main === module) {
           include: cmdObj.include,
         });
       } catch (e) {
-        console.log(`Error occurred: ${e}`);
+        console.log(`Error occurred: ${e.response ? e.response.text : e}`);
         return process.exit(-1);
       }
     });
