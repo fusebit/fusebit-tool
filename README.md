@@ -44,9 +44,9 @@ Usage: fuse-tool [options] [command]
     $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -c tags.type=slack
   ```
 
-  Compare the files in a template's "template/" directory with children based on a search criteria:
+  Compare the files in a template's "template/" directory with children based on multiple search criteria:
   ```
-    $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -c tags.type=slack
+    $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -c tags.type=slack compute.timeout=30
   ```
 
   Compare the files in a template's "template/" directory with a specific child:

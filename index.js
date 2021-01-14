@@ -31,7 +31,9 @@ async function listFunctions(subscriptionId, options) {
 
   const url =
     fuseProfile.baseUrl +
-    `/v1/account/${fuseProfile.account}/subscription/${subscriptionId}/function?search=${options.criteria}`;
+    `/v1/account/${fuseProfile.account}/subscription/${subscriptionId}/function?${options.criteria
+      .map((c) => `search=${c}`)
+      .join('&')}`;
   const response = await superagent.get(url).set({ Authorization: 'Bearer ' + fuseToken });
 
   return response.body.items;
@@ -203,8 +205,8 @@ if (require.main === module) {
       '  Compare the files in a template\'s "template/" directory with children based on a search criteria:',
       '    $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -c tags.type=slack',
       '',
-      '  Compare the files in a template\'s "template/" directory with children based on a search criteria:',
-      '    $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -c tags.type=slack',
+      '  Compare the files in a template\'s "template/" directory with children based on multiple search criteria:',
+      '    $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -c tags.type=slack compute.timeout=30',
       '',
       '  Compare the files in a template\'s "template/" directory with a specific child:',
       '    $ fuse-tool diff -s ${SUB} template-manager/sample-slack-addon -i template/ -u someboundary/somefunction',
@@ -220,14 +222,14 @@ if (require.main === module) {
       'Update all of the functions were created by the specified template with the files in "template/"\n' +
         `For example '$ fuse-tool update template-manager/sample-slack-addon -i template/`
     )
-    .requiredOption('-s, --subscription [subscriptionId]', 'Subscription ID')
-    .option('-c, --criteria [criteria]', 'An alternate search criteria to use when finding derived functions')
+    .requiredOption('-s, --subscription <subscriptionId>', 'Subscription ID')
+    .option('-c, --criteria <criteria...>', 'An alternate search criteria to use when finding derived functions')
     .option('-d, --delete', 'Delete files in the target function that are not present in the source')
     .option('-f, --force', 'Update the files, even if they have not changed')
-    .option('-u, --function [boundary/id]', 'Look only at the function specified by this boundary/functionId')
-    .option('-i, --include [path]', 'Select the files to update from the source')
+    .option('-u, --function <boundary/id>', 'Look only at the function specified by this boundary/functionId')
+    .option('-i, --include <path>', 'Select the files to update from the source')
     .option('-n, --dry-run', 'Perform no action, just report what would occur')
-    .option('-p, --path [path]', 'Use the the template specified in [path] instead of <template>')
+    .option('-p, --path <path>', 'Use the the template specified in [path] instead of <template>')
     .action(async (template, cmdObj) => {
       if (cmdObj.subscription.length != 'sub-0000000000000000'.length) {
         console.log('Subscription is not in the right format');
@@ -269,11 +271,11 @@ if (require.main === module) {
       'Diff the files in the derived functions with the files in the template/ directory of the specified template.\n' +
         `For example '$ fuse-tool diff template-manager/sample-slack-addon'`
     )
-    .requiredOption('-s, --subscription [subscriptionId]', 'Subscription ID')
-    .option('-c, --criteria [criteria]', 'An alternate search criteria to use when finding derived functions')
-    .option('-u, --function [boundary/id]', 'Look only at the function specified by this boundary/functionId')
-    .option('-i, --include [path]', 'Select the files to match from the source')
-    .option('-p, --path [path]', 'Use the the files specified in [path] instead of <template>')
+    .requiredOption('-s, --subscription <subscriptionId>', 'Subscription ID')
+    .option('-c, --criteria <criteria...>', 'An alternate search criteria to use when finding derived functions')
+    .option('-u, --function <boundary/id>', 'Look only at the function specified by this boundary/functionId')
+    .option('-i, --include <path>', 'Select the files to match from the source')
+    .option('-p, --path <path>', 'Use the the files specified in [path] instead of <template>')
     .action(async (template, cmdObj) => {
       if (cmdObj.subscription.length != 'sub-0000000000000000'.length) {
         console.log('Subscription is not in the right format');
@@ -294,7 +296,7 @@ if (require.main === module) {
 
       try {
         await processTemplateFunctions(cmdObj.subscription, diffFiles, {
-          criteria: cmdObj.criteria,
+          criteria: cmdObj.criteria || [],
           funcCriteria: cmdObj.function,
           path: cmdObj.path,
           include: cmdObj.include,
