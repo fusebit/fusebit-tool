@@ -28,6 +28,20 @@ Usage: fuse-tool [options] [command]
     $ fuse-tool update -s ${SUB} -p ./template-manager_sample-slack-addon -u template-manager/sample-slack-addon --delete
   ```
 
+  Update a function, using a script to modify the function directly:
+  ```
+    $ cat modify.js
+		exports["fusebit.json"] = (j) => {
+			j.compute.memorySize = 256;
+			return j;
+		};
+		exports["package.json"] = (j) => {
+			j.dependencies.superagent = "6.1.0";
+			return j;
+		};
+    $ fuse-tool update -s ${SUB} -u template-manager/sample-slack-addon --script modify.js
+  ```
+
 ## Diff Examples:
   Compare a template with one on disk:
   ```
@@ -57,6 +71,20 @@ Usage: fuse-tool [options] [command]
   Compare the files in an on-disk template's "template/" directory with a specific child:
   ```
     $ fuse-tool diff -s ${SUB} -p ./template-manager_sample-slack-addon -i template/ -u someboundary/somefunction
+  ```
+
+  Test how a function would change when using a script to modify the function directly:
+  ```
+    $ cat modify.js
+		exports["fusebit.json"] = (j) => {
+			j.compute.memorySize = 256;
+			return j;
+		};
+		exports["package.json"] = (j) => {
+			j.dependencies.superagent = "6.1.0";
+			return j;
+		};
+    $ fuse-tool diff -s ${SUB} -u template-manager/sample-slack-addon --script modify.js
   ```
 
 Options:

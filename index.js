@@ -64,7 +64,7 @@ async function putFunction(subscriptionId, boundaryId, functionId, body) {
 
 // Replace the files in a function with the files passed in from templateFiles
 async function updateFiles(templateFiles, subscriptionId, templatePath, boundaryId, functionId, options) {
-  const func = await getFunction(subscriptionId, boundaryId, functionId);
+  let func = await getFunction(subscriptionId, boundaryId, functionId);
 
   const updatedFiles = [];
   for (const name in templateFiles) {
@@ -83,6 +83,21 @@ async function updateFiles(templateFiles, subscriptionId, templatePath, boundary
       });
   }
 
+  if (options.scripts) {
+    // Handle the catchall for fusebit.json,
+    if (options.scripts['fusebit.json']) {
+      func = options.scripts['fusebit.json'](func);
+      updatedFiles.push('fusebit.json');
+    }
+
+    Object.keys(options.scripts).forEach((k) => {
+      if (func.nodejs.files[k]) {
+        func.nodejs.files[k] = JSON.stringify(options.scripts[k](JSON.parse(func.nodejs.files[k])), null, 2);
+        updatedFiles.push(k);
+      }
+    });
+  }
+
   if (updatedFiles.length == 0) {
     console.log(`${boundaryId}/${functionId} is up-to-date.`);
     return;
@@ -97,7 +112,24 @@ async function updateFiles(templateFiles, subscriptionId, templatePath, boundary
 
 // Replace the files in a function with the files passed in from templateFiles
 async function diffFiles(templateFiles, subscriptionId, templatePath, boundaryId, functionId, options) {
-  const func = await getFunction(subscriptionId, boundaryId, functionId);
+  let func = await getFunction(subscriptionId, boundaryId, functionId);
+  let oldFunc;
+
+  if (options.scripts) {
+    // Easier than doing a deep copy of a json object
+    oldFunc = await getFunction(subscriptionId, boundaryId, functionId);
+
+    // Handle the catchall for fusebit.json,
+    if (options.scripts['fusebit.json']) {
+      func = options.scripts['fusebit.json'](func);
+    }
+
+    Object.keys(options.scripts).forEach((k) => {
+      if (func.nodejs.files[k]) {
+        func.nodejs.files[k] = JSON.stringify(options.scripts[k](JSON.parse(func.nodejs.files[k])), null, 2);
+      }
+    });
+  }
 
   for (const name in templateFiles) {
     console.log(
@@ -106,6 +138,20 @@ async function diffFiles(templateFiles, subscriptionId, templatePath, boundaryId
         `${subscriptionId}/${boundaryId}/${functionId}/${name}`,
         templateFiles[name],
         func.nodejs.files[name] || '',
+        'Template',
+        'Instance'
+      )
+    );
+  }
+
+  if (Object.keys(templateFiles).length == 0) {
+    // Fall through when there's no template files, just script to modify the json files in a function.
+    console.log(
+      jsdiff.createTwoFilesPatch(
+        `old/${subscriptionId}/${boundaryId}/${functionId}`,
+        `new/${subscriptionId}/${boundaryId}/${functionId}`,
+        JSON.stringify(oldFunc, null, 2),
+        JSON.stringify(func, null, 2),
         'Template',
         'Instance'
       )
@@ -139,7 +185,8 @@ async function processTemplateFunctions(subscriptionId, action, options) {
     }
 
     templatePath = path.join(options.path, options.include || '');
-  } else {
+  }
+  if (options.template) {
     // Load the template function from remote
     const templateBoundary = options.template.split('/')[0];
     const templateId = options.template.split('/')[1];
@@ -161,6 +208,8 @@ async function processTemplateFunctions(subscriptionId, action, options) {
     templatePath = `${templateBoundary}/${templateId}/${options.include}`;
 
     options.criteria = options.criteria || `template.id=${templateId}`;
+  } else if (!options.scripts) {
+    throw new Error('Unknown source for function changes');
   }
 
   // Find all of it's children
@@ -230,6 +279,18 @@ if (require.main === module) {
     .option('-i, --include <path>', 'Select the files to update from the source')
     .option('-n, --dry-run', 'Perform no action, just report what would occur')
     .option('-p, --path <path>', 'Use the the template specified in [path] instead of <template>')
+    .option(
+      '--script <path>',
+      [
+        'Load the specified JavaScript file and use the functions declared as modifiers-of-last-resort for a function.',
+        '',
+        'Example:',
+        '\t// Parse the entire function specification',
+        '\texports["fusebit.json"] = (j) => { j.compute.memorySize = 256; return j; };',
+        '\t// Parse a specific json file in the function',
+        '\texports["package.json"] = (j) => { j.dependencies.superagent = "6.1.0"; return j; };',
+      ].join('\n')
+    )
     .action(async (template, cmdObj) => {
       if (cmdObj.subscription.length != 'sub-0000000000000000'.length) {
         console.log('Subscription is not in the right format');
@@ -243,8 +304,13 @@ if (require.main === module) {
         return process.exit(-1);
       }
 
-      if (!template && !cmdObj.path) {
-        console.log('One of [template] or [--path] must be specified');
+      let scripts;
+      if (cmdObj.script) {
+        scripts = require(cmdObj.script);
+      }
+
+      if (!template && !cmdObj.path && !scripts) {
+        console.log('At least one of [template], [--path], or [--script] must be specified');
         return process.exit(-1);
       }
 
@@ -257,6 +323,7 @@ if (require.main === module) {
           funcCriteria: cmdObj.function,
           path: cmdObj.path,
           template,
+          scripts,
           include: cmdObj.include,
         });
       } catch (e) {
@@ -276,6 +343,18 @@ if (require.main === module) {
     .option('-u, --function <boundary/id>', 'Look only at the function specified by this boundary/functionId')
     .option('-i, --include <path>', 'Select the files to match from the source')
     .option('-p, --path <path>', 'Use the the files specified in [path] instead of <template>')
+    .option(
+      '--script <path>',
+      [
+        'Load the specified JavaScript file and use the functions declared as modifiers-of-last-resort for a function.',
+        '',
+        'Example:',
+        '\t// Parse the entire function specification',
+        '\texports["fusebit.json"] = (j) => { j.compute.memorySize = 256; return j; };',
+        '\t// Parse a specific json file in the function',
+        '\texports["package.json"] = (j) => { j.dependencies.superagent = "6.1.0"; return j; };',
+      ].join('\n')
+    )
     .action(async (template, cmdObj) => {
       if (cmdObj.subscription.length != 'sub-0000000000000000'.length) {
         console.log('Subscription is not in the right format');
@@ -289,8 +368,13 @@ if (require.main === module) {
         return process.exit(-1);
       }
 
-      if (!template && !cmdObj.path) {
-        console.log('One of [template] or [--path] must be specified');
+      let scripts;
+      if (cmdObj.script) {
+        scripts = require(cmdObj.script);
+      }
+
+      if (!template && !cmdObj.path && !scripts) {
+        console.log('At least one of [template], [--path], or [--script] must be specified');
         return process.exit(-1);
       }
 
@@ -301,6 +385,7 @@ if (require.main === module) {
           path: cmdObj.path,
           include: cmdObj.include,
           template,
+          scripts,
         });
       } catch (e) {
         console.log(`${e}`, e);
