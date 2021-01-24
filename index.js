@@ -185,8 +185,7 @@ async function processTemplateFunctions(subscriptionId, action, options) {
     }
 
     templatePath = path.join(options.path, options.include || '');
-  }
-  if (options.template) {
+  } else if (options.template) {
     // Load the template function from remote
     const templateBoundary = options.template.split('/')[0];
     const templateId = options.template.split('/')[1];
