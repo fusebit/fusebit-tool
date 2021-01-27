@@ -87,6 +87,12 @@ async function updateFiles(templateFiles, subscriptionId, templatePath, boundary
     // Handle the catchall for fusebit.json,
     if (options.scripts['fusebit.json']) {
       func = options.scripts['fusebit.json'](func);
+      if (!func) {
+        throw new Error(
+          `The script for 'fusebit.json' did not return a new function specification.  This is probably a bug.`
+        );
+      }
+
       updatedFiles.push('fusebit.json');
     }
 
@@ -165,8 +171,9 @@ async function processTemplateFunctions(subscriptionId, action, options) {
   let templatePath;
 
   if (options.path) {
+    const pathRoot = path.resolve(path.join(options.path, options.include || ''));
     // Pull the files from the local filesystem
-    const dirs = [path.join(options.path, options.include || '')];
+    const dirs = [pathRoot];
     while (dirs.length > 0) {
       // Read all the files in this directory
       const dir = dirs.pop();
@@ -176,9 +183,9 @@ async function processTemplateFunctions(subscriptionId, action, options) {
           // Walk this directory
           dirs.push(fn);
         } else {
+          // Exclude .env and other similar files.
           if (file[0] != '.' && file !== 'fusebit.json') {
-            // Exclude .env and other similar files.
-            templateFiles[fn.slice(options.path.length - 1)] = fs.readFileSync(fn, { encoding: 'utf8' });
+            templateFiles[fn.slice(pathRoot.length + 1)] = fs.readFileSync(fn, { encoding: 'utf8' });
           }
         }
       });
@@ -326,7 +333,7 @@ if (require.main === module) {
           include: cmdObj.include,
         });
       } catch (e) {
-        console.log(`Error occurred: ${e.response ? e.response.text : e}`);
+        console.log(`Error occurred:`, e);
         return process.exit(-1);
       }
     });
