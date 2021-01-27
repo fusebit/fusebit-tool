@@ -312,7 +312,7 @@ if (require.main === module) {
 
       let scripts;
       if (cmdObj.script) {
-        scripts = require(cmdObj.script);
+        scripts = require(path.resolve(path.join(process.cwd(), cmdObj.script)));
       }
 
       if (!template && !cmdObj.path && !scripts) {
@@ -376,7 +376,7 @@ if (require.main === module) {
 
       let scripts;
       if (cmdObj.script) {
-        scripts = require(cmdObj.script);
+        scripts = require(path.resolve(path.join(process.cwd(), cmdObj.script)));
       }
 
       if (!template && !cmdObj.path && !scripts) {
