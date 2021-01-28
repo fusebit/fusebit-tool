@@ -16,6 +16,10 @@ try {
   process.exit(-1);
 }
 
+function normalizeScriptPath(script) {
+  return path.resolve(script);
+}
+
 // Get a list of functions matching the criteria
 async function listFunctions(subscriptionId, options) {
   if (options.funcCriteria) {
@@ -312,7 +316,7 @@ if (require.main === module) {
 
       let scripts;
       if (cmdObj.script) {
-        scripts = require(path.resolve(path.join(process.cwd(), cmdObj.script)));
+        scripts = require(normalizeScriptPath(cmdObj.script));
       }
 
       if (!template && !cmdObj.path && !scripts) {
@@ -376,7 +380,7 @@ if (require.main === module) {
 
       let scripts;
       if (cmdObj.script) {
-        scripts = require(path.resolve(path.join(process.cwd(), cmdObj.script)));
+        scripts = require(normalizeScriptPath(cmdObj.script));
       }
 
       if (!template && !cmdObj.path && !scripts) {
