@@ -230,10 +230,20 @@ async function processTemplateFunctions(subscriptionId, action, options) {
     return;
   }
 
-  // Update the children
-  await Promise.all(
-    funcs.map((f) => action(templateFiles, subscriptionId, templatePath, f.boundaryId, f.functionId, options))
-  );
+  // Update the children, n workers at a time.
+  const workers = [];
+  for (let n = 0; n < options.workers; n++) {
+    workers.push(
+      (async () => {
+        while (funcs.length > 0) {
+          const item = funcs.pop();
+          await action(templateFiles, subscriptionId, templatePath, item.boundaryId, item.functionId, options);
+        }
+      })()
+    );
+  }
+
+  await Promise.all(workers);
 }
 
 if (require.main === module) {
@@ -289,6 +299,7 @@ if (require.main === module) {
     .option('-i, --include <path>', 'Select the files to update from the source')
     .option('-n, --dry-run', 'Perform no action, just report what would occur')
     .option('-p, --path <path>', 'Use the the template specified in [path] instead of <template>')
+    .option('-w, --workers <workers>', 'Number of workers to run in parallel to update functions (default: 10)', 10)
     .option(
       '--script <path>',
       [
@@ -332,6 +343,7 @@ if (require.main === module) {
           force: cmdObj.force,
           funcCriteria: cmdObj.function,
           path: cmdObj.path,
+          workers: cmdObj.workers,
           template,
           scripts,
           include: cmdObj.include,
@@ -394,6 +406,7 @@ if (require.main === module) {
           funcCriteria: cmdObj.function,
           path: cmdObj.path,
           include: cmdObj.include,
+          workers: 1,
           template,
           scripts,
         });
