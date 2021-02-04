@@ -33,14 +33,22 @@ async function listFunctions(subscriptionId, options) {
     ];
   }
 
-  const url =
-    fuseProfile.baseUrl +
-    `/v1/account/${fuseProfile.account}/subscription/${subscriptionId}/function?${options.criteria
-      .map((c) => `search=${c}`)
-      .join('&')}`;
-  const response = await superagent.get(url).set({ Authorization: 'Bearer ' + fuseToken });
+  let items = [];
+  let next;
+  do {
+    const url =
+      fuseProfile.baseUrl +
+      `/v1/account/${fuseProfile.account}/subscription/${subscriptionId}/function?${
+        next ? `next=${next}&` : ''
+      }${options.criteria.map((c) => `search=${c}`).join('&')}`;
 
-  return response.body.items;
+    const response = await superagent.get(url).set({ Authorization: 'Bearer ' + fuseToken });
+    next = response.body.next;
+    items = items.concat(response.body.items);
+  } while (next);
+
+  console.log(`Identified ${items.length} matching functions...`);
+  return items;
 }
 
 // Retrieve the specified function
