@@ -8,12 +8,15 @@ const path = require('path');
 
 let fuseToken, fuseProfile;
 
-try {
-  fuseToken = spawnSync('fuse', ['token', '-o', 'raw']).stdout.toString().trim();
-  fuseProfile = JSON.parse(spawnSync('fuse', ['profile', 'get', '-o', 'json']).stdout.toString());
-} catch (c) {
-  console.log('ERROR: Make sure your `fuse profile get -o json` returns the current fuse profile.');
-  process.exit(-1);
+function updateToken() {
+  try {
+    fuseToken = spawnSync('fuse', ['token', '-o', 'raw']).stdout.toString().trim();
+    fuseProfile = JSON.parse(spawnSync('fuse', ['profile', 'get', '-o', 'json']).stdout.toString());
+    setTimeout(updateToken, Date.now() + 1 * 60 * 60 * 1000); // Update every hour, if the process is taking a long time.
+  } catch (c) {
+    console.log('ERROR: Make sure your `fuse profile get -o json` returns the current fuse profile.');
+    process.exit(-1);
+  }
 }
 
 function normalizeScriptPath(script) {
@@ -255,6 +258,8 @@ async function processTemplateFunctions(subscriptionId, action, options) {
 }
 
 if (require.main === module) {
+  updateToken();
+
   const program = new Command();
   program.description(
     [
