@@ -6,13 +6,13 @@ const jsdiff = require('diff');
 const fs = require('fs');
 const path = require('path');
 
-let fuseToken, fuseProfile;
+let fuseToken, fuseProfile, fuseTimer;
 
 function updateToken() {
   try {
     fuseToken = spawnSync('fuse', ['token', '-o', 'raw']).stdout.toString().trim();
     fuseProfile = JSON.parse(spawnSync('fuse', ['profile', 'get', '-o', 'json']).stdout.toString());
-    setTimeout(updateToken, Date.now() + 1 * 60 * 60 * 1000); // Update every hour, if the process is taking a long time.
+    fuseTimer = setTimeout(updateToken, 1 * 60 * 60 * 1000); // Update every hour, if the process is taking a long time.
   } catch (c) {
     console.log('ERROR: Make sure your `fuse profile get -o json` returns the current fuse profile.');
     process.exit(-1);
@@ -255,6 +255,7 @@ async function processTemplateFunctions(subscriptionId, action, options) {
   }
 
   await Promise.all(workers);
+  clearTimeout(fuseTimer);
 }
 
 if (require.main === module) {
