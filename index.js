@@ -6,6 +6,8 @@ const jsdiff = require('diff');
 const fs = require('fs');
 const path = require('path');
 
+const commandMigrate = require('./migrate');
+
 let fuseToken, fuseProfile, fuseTimer;
 
 function updateToken() {
@@ -296,6 +298,16 @@ if (require.main === module) {
       '',
       '  Compare the files in an on-disk template\'s "template/" directory with a specific child:',
       '    $ fuse-tool diff -s ${SUB} -p ./template-manager_sample-slack-addon -i template/ -u someboundary/somefunction',
+      '',
+      'Migrate Examples:',
+      '  Migrate from one `fuse` profile to another:',
+      '    $ fuse-tool migrate oldProfile newProfile',
+      '',
+      '  Migrate with explicit subscriptions:',
+      '    $ fuse-tool migrate oldProfile newProfile -s sub-1234 -d sub-7890',
+      '',
+      '  Migrate from one `fuse` profile to another with a search criteria:',
+      '    $ fuse-tool migrate oldProfile newProfile -c tags.type=slack',
     ].join('\n')
   );
 
@@ -430,5 +442,11 @@ if (require.main === module) {
       }
     });
 
-  (async () => await program.parseAsync(process.argv))();
+  // Add the migration command in.
+  commandMigrate(program);
+
+  (async () => {
+    await program.parseAsync(process.argv);
+    clearTimeout(fuseTimer);
+  })();
 }

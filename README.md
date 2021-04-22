@@ -87,12 +87,29 @@ Usage: fuse-tool [options] [command]
     $ fuse-tool diff -s ${SUB} -u template-manager/sample-slack-addon --script modify.js
   ```
 
-Options:
+## Migrate Examples
+
+  Migrate from one `fuse` profile to another:',
+  ```
+    $ fuse-tool migrate oldProfile newProfile',
+  ```
+
+  Migrate with explicit subscriptions:',
+  ```
+    $ fuse-tool migrate oldProfile newProfile -s sub-1234 -d sub-7890',
+  ```
+
+  Migrate from one `fuse` profile to another with a search criteria:',
+  ```
+    $ fuse-tool migrate oldProfile newProfile -c tags.type=slack',
+  ```
+
+## Options:
   ```
   -h, --help                   display help for command
   ```
 
-Commands:
+## Commands:
   ```
   update [options] [template]  Update all of the functions were created by
                                the specified template with the files in
@@ -104,5 +121,7 @@ Commands:
                                specified template.
                                For example '$ fuse-tool diff
                                template-manager/sample-slack-addon'
+  migrate [options] <sourceProfile> <destProfile>
+                               Migrate functions from one subscription to another.
   help [command]               display help for command
   ```
