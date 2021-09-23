@@ -67,14 +67,36 @@ async function getFunction(subscriptionId, boundaryId, functionId) {
 }
 
 // Recreate the function with the specified body
-async function putFunction(subscriptionId, boundaryId, functionId, body) {
+async function putFunction(subscriptionId, boundaryId, functionId, body, options) {
   const url =
     fuseProfile.baseUrl +
     `/v1/account/${fuseProfile.account}/subscription/${subscriptionId}/boundary/${boundaryId}/function/${functionId}`;
-  const response = await superagent
+  let response = await superagent
     .put(url)
     .set({ Authorization: 'Bearer ' + fuseToken })
     .send(body);
+  console.log('Status:', response.body.status);
+  let n = Math.floor((options.block || -2) / 2) + 1;
+  while ((response.body.status === 'pending' || response.body.status === 'building') && n > 0) {
+    await new Promise((resolve) => setTimeout(() => resolve(), 2000));
+    response = await superagent
+      .get(`${url}/build/${response.body.buildId}`)
+      .set({ Authorization: 'Bearer ' + fuseToken });
+    n--;
+    console.log('Status:', response.body.status);
+  }
+  if (options.block) {
+    if (response.body.status === 'pending' || response.body.status === 'building') {
+      throw new Error(`The function did not complete building within ${options.block} seconds.`);
+    }
+    if (response.body.status !== 'success') {
+      const message =
+        result.body.error && result.body.error.message
+          ? result.body.error.message
+          : result.body.message || 'Unknown error';
+      throw new Error(`The function failed to build: ${message}`);
+    }
+  }
 
   return response.body;
 }
@@ -127,7 +149,7 @@ async function updateFiles(templateFiles, subscriptionId, templatePath, boundary
   }
 
   if (!options.dryRun) {
-    await putFunction(subscriptionId, boundaryId, functionId, func);
+    await putFunction(subscriptionId, boundaryId, functionId, func, options);
   }
 
   console.log(`Updated ${boundaryId}/${functionId}: ${updatedFiles.join(', ')}`);
@@ -319,6 +341,10 @@ if (require.main === module) {
     )
     .requiredOption('-s, --subscription <subscriptionId>', 'Subscription ID')
     .option('-c, --criteria <criteria...>', 'An alternate search criteria to use when finding derived functions')
+    .option(
+      '-b, --block <seconds>',
+      'Wait up to <seconds> for completion of an asynchronous function update before exiting'
+    )
     .option('-d, --delete', 'Delete files in the target function that are not present in the source')
     .option('-f, --force', 'Update the files, even if they have not changed')
     .option('-u, --function <boundary/id>', 'Look only at the function specified by this boundary/functionId')
@@ -363,6 +389,7 @@ if (require.main === module) {
 
       try {
         await processTemplateFunctions(cmdObj.subscription, updateFiles, {
+          block: cmdObj.block ? +cmdObj.block || 5 : undefined,
           criteria: cmdObj.criteria,
           delete: cmdObj.delete,
           dryRun: cmdObj.dryRun,
